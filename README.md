@@ -91,5 +91,3 @@ var authPayload = new Dictionary<string, object>()
 string token = tokenGenerator.CreateToken(authPayload, new Firebase.TokenOptions(admin: true));
 ```
 
-# License
- [MIT](https://firebase.mit-license.org/)
