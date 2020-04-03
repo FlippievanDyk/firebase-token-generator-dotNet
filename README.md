@@ -1,5 +1,7 @@
-# Status: Archived
-This repository has been archived and is no longer maintained.
+# Status: Inactive
+This is a conversion of the original repository to .NET Standard 2.0. Tests have been converted to .NET Core 3.1
+
+This will not be actively maintained. 
 
 ![status: inactive](https://img.shields.io/badge/status-inactive-red.svg)
 
@@ -88,3 +90,6 @@ var authPayload = new Dictionary<string, object>()
 };
 string token = tokenGenerator.CreateToken(authPayload, new Firebase.TokenOptions(admin: true));
 ```
+
+# License
+ [MIT](https://firebase.mit-license.org/)
