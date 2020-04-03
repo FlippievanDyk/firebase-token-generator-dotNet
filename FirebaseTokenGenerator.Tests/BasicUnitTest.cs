@@ -1,29 +1,37 @@
-﻿using System;
-using System.Collections;
+using JWT;
+using JWT.Algorithms;
+using JWT.Serializers;
+using Newtonsoft.Json;
+using NUnit.Framework;
+using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Text.RegularExpressions;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Firebase;
 
-namespace Firebase.Tests
+namespace FirebaseTokenGenerator.Tests
 {
-    [TestClass]
-    public class BasicUnitTest
+    public class Tests
     {
         private string FIREBASE_SUPER_SECRET_KEY = "moozooherpderp";
 
-        [TestMethod]
-        [ExpectedException(typeof(Exception))]
-        public void CheckIfBasicLength()
+        [Test]
+        public void Dummy()
         {
-            var payload = new Dictionary<string, object>();
-
-            var tokenGenerator = new TokenGenerator("x");
-            var token = tokenGenerator.CreateToken(payload);
+            Assert.Pass();
         }
 
-        [TestMethod]
+        [Test]
+        public void CheckIfBasicLength()
+        {
+            Assert.Throws<Exception>(() =>
+            {
+                var payload = new Dictionary<string, object>();
+
+                var tokenGenerator = new TokenGenerator("x");
+                var token = tokenGenerator.CreateToken(payload);
+            });
+        }
+
+        [Test]
         public void CheckBasicStructureHasCorrectNumberOfFragments()
         {
             var payload = new Dictionary<string, object>
@@ -40,7 +48,7 @@ namespace Firebase.Tests
             Assert.IsTrue(tokenFragments.Length == 3, "Token has the proper number of fragments: jwt metadata, payload, and signature");
         }
 
-        [TestMethod]
+        [Test]
         public void CheckResultProperlyDoesNotHavePadding()
         {
             var payload = new Dictionary<string, object>
@@ -55,7 +63,7 @@ namespace Firebase.Tests
             Assert.IsTrue(token.IndexOf('=') < 0);
         }
 
-        [TestMethod]
+        [Test]
         public void CheckIfResultIsUrlSafePlusSign()
         {
             var payload = new Dictionary<string, object>
@@ -70,7 +78,7 @@ namespace Firebase.Tests
             Assert.IsTrue(token.IndexOf('+') < 0);
         }
 
-        [TestMethod]
+        [Test]
         public void CheckIfResultIsUrlSafePlusSlash()
         {
             var payload = new Dictionary<string, object>
@@ -85,7 +93,7 @@ namespace Firebase.Tests
             Assert.IsTrue(token.IndexOf('/') < 0);
         }
 
-        [TestMethod]
+        [Test]
         public void CheckIfResultHasWhiteSpace()
         {
             var payload = new Dictionary<string, object>
@@ -108,7 +116,7 @@ namespace Firebase.Tests
             Assert.IsFalse(hasWhiteSpace, "Token has white space");
         }
 
-        [TestMethod]
+        [Test]
         public void BasicInspectTest()
         {
             var customData = "0123456789~!@#$%^&*()_+-=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ,./;'[]\\<>?\"{}|";
@@ -122,43 +130,71 @@ namespace Firebase.Tests
             var tokenOptions = new TokenOptions(DateTime.Now, DateTime.Now, true, true);
 
             var token = tokenGenerator.CreateToken(payload, tokenOptions);
-            var decoded = JWT.JsonWebToken.DecodeToObject(token, FIREBASE_SUPER_SECRET_KEY) as Dictionary<string, object>;
-            Assert.IsTrue(decoded.ContainsKey("v") && (decoded["v"] is int) && (int.Parse(decoded["v"].ToString()) == 0));
-            Assert.IsTrue(decoded.ContainsKey("d") && (decoded["d"] as Dictionary<string, object>).ContainsKey("abc"));
-            Assert.IsTrue(decoded.ContainsKey("exp") && (decoded["exp"] is int));
-            Assert.IsTrue(decoded.ContainsKey("iat") && (decoded["iat"] is int));
-            Assert.IsTrue(decoded.ContainsKey("nbf") && (decoded["nbf"] is int));
-            Assert.IsTrue(decoded.ContainsKey("admin") && (decoded["admin"] is bool));
-            Assert.IsTrue(decoded.ContainsKey("debug") && (decoded["debug"] is bool));
+
+            var jwtDecoder = new JWT.JwtDecoder(new JsonNetSerializer(), new JwtValidator(new JsonNetSerializer(), new UtcDateTimeProvider()), new JwtBase64UrlEncoder(), new HMACSHA256Algorithm());
+            var decoded = jwtDecoder.DecodeToObject(token);
+
+            Assert.Multiple(() =>
+            {
+                Assert.IsTrue(decoded.ContainsKey("v"));
+                Assert.IsTrue(int.Parse(decoded["v"].ToString()) == 0);
+                Assert.IsTrue(decoded["v"] is long);
+
+                Assert.IsTrue(decoded.ContainsKey("d"));
+                var c = decoded["d"];
+                var json = JsonConvert.SerializeObject(c);
+                var dictionary = JsonConvert.DeserializeObject<Dictionary<string, object>>(json);
+                Assert.IsTrue(dictionary.ContainsKey("abc"));
+
+                Assert.IsTrue(decoded.ContainsKey("exp"));
+                Assert.IsTrue(decoded["exp"] is long);
+
+                Assert.IsTrue(decoded.ContainsKey("iat"));
+                Assert.IsTrue(decoded["iat"] is long);
+
+                Assert.IsTrue(decoded.ContainsKey("nbf"));
+                Assert.IsTrue(decoded["nbf"] is long);
+
+                Assert.IsTrue(decoded.ContainsKey("admin"));
+                Assert.IsTrue(decoded["admin"] is bool);
+
+                Assert.IsTrue(decoded.ContainsKey("debug"));
+                Assert.IsTrue(decoded["debug"] is bool);
+            }
+            );
         }
 
-        [TestMethod]
-        [ExpectedException(typeof(Exception))]
+        [Test]
         public void RequireUidInPayload()
         {
-            var payload = new Dictionary<string, object>
+            Assert.Throws<Exception>(() =>
             {
-                { "abc", "0123456789~!@#$%^&*()_+-=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ,./;'[]\\<>?\"{}|" }
-            };
+                var payload = new Dictionary<string, object>
+                {
+                    { "abc", "0123456789~!@#$%^&*()_+-=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ,./;'[]\\<>?\"{}|" }
+                };
 
-            var tokenGenerator = new TokenGenerator(FIREBASE_SUPER_SECRET_KEY);
-            var token = tokenGenerator.CreateToken(payload);
+                var tokenGenerator = new TokenGenerator(FIREBASE_SUPER_SECRET_KEY);
+                var token = tokenGenerator.CreateToken(payload);
+            });
         }
 
-        [TestMethod]
-        [ExpectedException(typeof(Exception))]
+        [Test]
         public void RequireUidStringInPayload()
         {
-            var payload = new Dictionary<string, object>
+            Assert.Throws<Exception>(() =>
             {
-                { "uid", 1 }
-            };
+                var payload = new Dictionary<string, object>
+                {
+                    { "uid", 1 }
+                };
 
-            var tokenGenerator = new TokenGenerator(FIREBASE_SUPER_SECRET_KEY);
-            var token = tokenGenerator.CreateToken(payload);
+                var tokenGenerator = new TokenGenerator(FIREBASE_SUPER_SECRET_KEY);
+                var token = tokenGenerator.CreateToken(payload);
+            });
         }
 
-        [TestMethod]
+        [Test]
         public void AllowMaxLengthUid()
         {
             var payload = new Dictionary<string, object>
@@ -171,21 +207,23 @@ namespace Firebase.Tests
             var token = tokenGenerator.CreateToken(payload);
         }
 
-        [TestMethod]
-        [ExpectedException(typeof(Exception))]
+        [Test]
         public void DisallowUidTooLong()
         {
-            var payload = new Dictionary<string, object>
+            Assert.Throws<Exception>(() =>
             {
-                //                10        20        30        40        50        60        70        80        90       100       110       120       130       140       150       160       170       180       190       200       210       220       230       240       250    257
-                { "uid", "12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567" }
-            };
+                var payload = new Dictionary<string, object>
+                {
+                    //                10        20        30        40        50        60        70        80        90       100       110       120       130       140       150       160       170       180       190       200       210       220       230       240       250    257
+                    { "uid", "12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567" }
+                };
 
-            var tokenGenerator = new TokenGenerator(FIREBASE_SUPER_SECRET_KEY);
-            var token = tokenGenerator.CreateToken(payload);
+                var tokenGenerator = new TokenGenerator(FIREBASE_SUPER_SECRET_KEY);
+                var token = tokenGenerator.CreateToken(payload);
+            });
         }
 
-        [TestMethod]
+        [Test]
         public void AllowEmptyStringUid()
         {
             var payload = new Dictionary<string, object>
@@ -197,21 +235,23 @@ namespace Firebase.Tests
             var token = tokenGenerator.CreateToken(payload);
         }
 
-        [TestMethod]
-        [ExpectedException(typeof(Exception))]
+        [Test]
         public void DisallowTokensTooLong()
         {
-            var payload = new Dictionary<string, object>
+            Assert.Throws<Exception>(() =>
             {
-                { "uid", "blah" },
-                { "longVar", "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345612345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234561234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456" }
-            };
+                var payload = new Dictionary<string, object>
+                {
+                    { "uid", "blah" },
+                    { "longVar", "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345612345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234561234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456" }
+                };
 
-            var tokenGenerator = new TokenGenerator(FIREBASE_SUPER_SECRET_KEY);
-            var token = tokenGenerator.CreateToken(payload);
+                var tokenGenerator = new TokenGenerator(FIREBASE_SUPER_SECRET_KEY);
+                var token = tokenGenerator.CreateToken(payload);
+            });
         }
 
-        [TestMethod]
+        [Test]
         public void AllowNoUidWithAdmin()
         {
             var tokenOptions = new TokenOptions(null, null, true, false);
@@ -227,34 +267,38 @@ namespace Firebase.Tests
             var token2 = tokenGenerator.CreateToken(payload2, tokenOptions);
         }
 
-        [TestMethod]
-        [ExpectedException(typeof(Exception))]
+        [Test]
         public void DisallowInvalidUidWithAdmin1()
         {
-            var payload = new Dictionary<string, object>
+            Assert.Throws<Exception>(() =>
             {
-                { "uid", 1 }
-            };
+                var payload = new Dictionary<string, object>
+                {
+                    { "uid", 1 }
+                };
 
-            var tokenOptions = new TokenOptions(null, null, true, false);
+                var tokenOptions = new TokenOptions(null, null, true, false);
 
-            var tokenGenerator = new TokenGenerator(FIREBASE_SUPER_SECRET_KEY);
-            var token = tokenGenerator.CreateToken(payload, tokenOptions);
+                var tokenGenerator = new TokenGenerator(FIREBASE_SUPER_SECRET_KEY);
+                var token = tokenGenerator.CreateToken(payload, tokenOptions);
+            });
         }
 
-        [TestMethod]
-        [ExpectedException(typeof(Exception))]
+        [Test]
         public void DisallowInvalidUidWithAdmin2()
         {
-            var payload = new Dictionary<string, object>
+            Assert.Throws<Exception>(() =>
             {
-                { "uid", null }
-            };
+                var payload = new Dictionary<string, object>
+                {
+                    { "uid", null }
+                };
 
-            var tokenOptions = new TokenOptions(null, null, true, false);
+                var tokenOptions = new TokenOptions(null, null, true, false);
 
-            var tokenGenerator = new TokenGenerator(FIREBASE_SUPER_SECRET_KEY);
-            var token = tokenGenerator.CreateToken(payload, tokenOptions);
+                var tokenGenerator = new TokenGenerator(FIREBASE_SUPER_SECRET_KEY);
+                var token = tokenGenerator.CreateToken(payload, tokenOptions);
+            });
         }
     }
 }

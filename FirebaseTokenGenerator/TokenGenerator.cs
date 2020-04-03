@@ -1,9 +1,11 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Text;
 
-namespace Firebase
+using JWT;
+using JWT.Algorithms;
+using JWT.Serializers;
+
+namespace FirebaseTokenGenerator
 {
     /// <summary>
     /// Generates firebase auth tokens for your firebase.
@@ -81,7 +83,10 @@ namespace Firebase
 
         private string computeToken(Dictionary<string, object> claims)
         {
-            return JWT.JsonWebToken.Encode(claims, this._firebaseSecret, JWT.JwtHashAlgorithm.HS256);
+            JwtEncoder jwtEncoder = new JwtEncoder(new HMACSHA256Algorithm(),
+                new JsonNetSerializer(),
+                new JwtBase64UrlEncoder());
+            return jwtEncoder.Encode(claims, this._firebaseSecret);
         }
 
         private static long secondsSinceEpoch(DateTime dt)
